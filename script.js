@@ -14,6 +14,8 @@ let settings = JSON.parse(localStorage.getItem("tileiq-settings")) || {
     markup:        20,
     labourMarkup:  false,
     labourM2:      32,
+    labourM2Wall:  35,
+    labourM2Floor: 28,
     dayRate:       200,
     applyVat:      true,
     // prep costs £/m²
@@ -517,26 +519,46 @@ function buildSurfaces() {
 function calcSurface(s, customerTiles, labourOpts) {
     const S = settings;
     const tileArea = (s.tileW / 1000) * (s.tileH / 1000);
-    s.tiles   = Math.ceil((s.area / tileArea) * 1.12);
 
-    const tWm = s.tileW / 1000, tHm = s.tileH / 1000, jM = (s.grout || 2) / 1000;
-    s.groutKg = Math.ceil(((tWm + tHm) / (tWm * tHm)) * jM * s.area * 1600 * 10) / 10;
-    s.adhBags = Math.ceil((s.area * 5) / 20);
+    // Waste factor: walls 12%, floors 10%
+    const wasteFactor = s.type === "wall" ? 1.12 : 1.10;
+    s.tiles = Math.ceil((s.area / tileArea) * wasteFactor);
+
+    // Adhesive: based on tile size category (from BAL/Weber data sheets)
+    const maxDim = Math.max(s.tileW, s.tileH);
+    let adhKgM2;
+    if      (maxDim < 100)  { adhKgM2 = 2.5; s.adhNotch = "3–4.5mm"; s.adhCat = "Mosaic"; }
+    else if (maxDim <= 300) { adhKgM2 = 3.5; s.adhNotch = "6–8mm";   s.adhCat = "Standard Wall"; }
+    else if (maxDim <= 600) { adhKgM2 = 5.0; s.adhNotch = "10–12mm"; s.adhCat = "Standard Floor"; }
+    else                    { adhKgM2 = 7.0; s.adhNotch = "12mm+";   s.adhCat = "Large Format"; }
+    s.adhBags = Math.ceil((s.area * adhKgM2) / 20);
+
+    // Grout: empirical kg/m² per mm joint width (BAL/Weber coverage tables)
+    const groutMm = s.grout || 2;
+    let groutBasePerMm;
+    if      (maxDim < 100)  groutBasePerMm = 0.75;  // mosaic
+    else if (maxDim <= 300) groutBasePerMm = 0.40;  // std wall
+    else if (maxDim <= 600) groutBasePerMm = 0.25;  // std floor
+    else                    groutBasePerMm = 0.17;  // large format
+    s.groutKg = Math.ceil(groutBasePerMm * groutMm * s.area * 10) / 10;
 
     const tileCost = customerTiles ? 0 : s.tiles * S.tilePrice;
     const matRaw   = tileCost + s.groutKg * S.groutPrice + s.adhBags * S.adhesivePrice;
     const mult     = 1 + S.markup / 100;
     s.materialSell = matRaw * mult;
 
-    // Labour: day rate splits evenly across surfaces by area, m² rate per surface
+    // Labour: separate wall/floor rates
+    const labourRate = s.type === "wall"
+        ? (S.labourM2Wall || S.labourM2 || 35)
+        : (S.labourM2Floor || S.labourM2 || 28);
+
     if (labourOpts && labourOpts.type === "day") {
-        const totalArea = labourOpts.totalArea || 1;
+        const totalArea  = labourOpts.totalArea || 1;
         const proportion = totalArea > 0 ? s.area / totalArea : 0;
-        const totalLabour = labourOpts.days * labourOpts.dayRate;
-        const labRaw = totalLabour * proportion;
+        const labRaw     = labourOpts.days * labourOpts.dayRate * proportion;
         s.labour = S.labourMarkup ? labRaw * mult : labRaw;
     } else {
-        const labRaw = s.area * S.labourM2;
+        const labRaw = s.area * labourRate;
         s.labour = S.labourMarkup ? labRaw * mult : labRaw;
     }
 
