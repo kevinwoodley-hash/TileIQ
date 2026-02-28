@@ -7,7 +7,7 @@
 /* ─── STATE ─────────────────────────────────────────────────── */
 let jobs     = JSON.parse(localStorage.getItem("tileiq-jobs"))     || [];
 let settings = JSON.parse(localStorage.getItem("tileiq-settings")) || {
-    tilePrice:     2.80,
+    tilePrice:     25.00,
     groutPrice:    4.50,
     adhesivePrice: 22,
     siliconePrice: 6.50,
@@ -562,7 +562,7 @@ function calcSurface(s, customerTiles, labourOpts) {
     else                    groutBasePerMm = 0.17;  // large format
     s.groutKg = Math.ceil(groutBasePerMm * groutMm * s.area * 10) / 10;
 
-    const tileCost = customerTiles ? 0 : s.tiles * S.tilePrice;
+    const tileCost = customerTiles ? 0 : s.area * S.tilePrice;
     const matRaw   = tileCost + s.groutKg * S.groutPrice + s.adhBags * S.adhesivePrice;
     const mult     = 1 + S.markup / 100;
     s.materialSell = matRaw * mult;
@@ -735,7 +735,7 @@ function goSettings() {
 
 function saveSettings() {
     settings = {
-        tilePrice:     parseFloat(document.getElementById("set-tile-price").value)     || 2.80,
+        tilePrice:     parseFloat(document.getElementById("set-tile-price").value)     || 25.00,
         groutPrice:    parseFloat(document.getElementById("set-grout-price").value)    || 4.50,
         adhesivePrice: parseFloat(document.getElementById("set-adhesive-price").value) || 22,
         siliconePrice: parseFloat(document.getElementById("set-silicone-price").value) || 6.50,
