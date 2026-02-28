@@ -214,6 +214,11 @@ function renderJobView() {
             return `<span class="surf-chip">${icon} ${esc(s.label)} ${dim} · £${s.total}</span>`;
         }).join("");
 
+        const mats  = surfaces.reduce((a, s) => a + (s.materialSell || 0), 0);
+        const lab   = surfaces.reduce((a, s) => a + (s.labour       || 0), 0);
+        const prep  = surfaces.reduce((a, s) => a + (s.prepCost     || 0), 0);
+        const ufh   = surfaces.reduce((a, s) => a + (s.ufhCost      || 0), 0);
+
         return `
         <div class="room-card">
             <div class="room-card-header">
@@ -222,6 +227,13 @@ function renderJobView() {
                     <div class="room-card-meta">${areaStr}</div>
                 </div>
                 <div class="room-card-total">£${r.total}</div>
+            </div>
+            <div class="room-cost-breakdown">
+                <span class="rcb-item"><span class="rcb-label">Materials</span><span class="rcb-value">£${mats.toFixed(2)}</span></span>
+                <span class="rcb-sep">|</span>
+                <span class="rcb-item"><span class="rcb-label">Labour</span><span class="rcb-value">£${lab.toFixed(2)}</span></span>
+                ${prep > 0 ? `<span class="rcb-sep">|</span><span class="rcb-item"><span class="rcb-label">Prep</span><span class="rcb-value">£${prep.toFixed(2)}</span></span>` : ""}
+                ${ufh  > 0 ? `<span class="rcb-sep">|</span><span class="rcb-item"><span class="rcb-label">UFH</span><span class="rcb-value">£${ufh.toFixed(2)}</span></span>` : ""}
             </div>
             ${surfLines ? `<div class="surf-chips">${surfLines}</div>` : ""}
             <div class="room-card-actions">
