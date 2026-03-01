@@ -391,6 +391,7 @@ function clearRoomInputs() {
     // reset tile defaults
     document.getElementById("rm-r-wtilew").value = 300;
     document.getElementById("rm-r-wtileh").value = 600;
+    document.getElementById("rm-r-wtilethick").value = 8;
     document.getElementById("rm-r-wgrout").value = 2;
     document.getElementById("rm-r-ftilew").value = 600;
     document.getElementById("rm-r-ftileh").value = 600;
@@ -398,8 +399,10 @@ function clearRoomInputs() {
     document.getElementById("rm-r-deduct").value = 0;
     document.getElementById("rm-f-tilew").value  = 600;
     document.getElementById("rm-f-tileh").value  = 600;
+    document.getElementById("rm-f-tilethick").value = 10;
     document.getElementById("rm-f-grout").value  = 2;
     document.getElementById("rm-w-tilew").value  = 300;
+    document.getElementById("rm-w-tilethick").value = 8;
     document.getElementById("rm-w-tileh").value  = 600;
     document.getElementById("rm-w-grout").value  = 2;
 }
@@ -419,6 +422,7 @@ function restoreRoomInputs(room) {
             set("rm-r-height", walls[0].height);
             set("rm-r-wtilew", walls[0].tileW);
             set("rm-r-wtileh", walls[0].tileH);
+            set("rm-r-wtilethick", walls[0].tileThick || 8);
             set("rm-r-wgrout", walls[0].grout);
             setCb("rm-r-tanking", walls[0].tanking);
         }
@@ -426,6 +430,7 @@ function restoreRoomInputs(room) {
             setCb("rm-r-inclfloor", true);
             set("rm-r-ftilew", floors[0].tileW);
             set("rm-r-ftileh", floors[0].tileH);
+            set("rm-r-ftilethick", floors[0].tileThick || 10);
             set("rm-r-fgrout", floors[0].grout);
             setCb("rm-r-ufh", floors[0].ufh);
             setCb("rm-r-cementboard", floors[0].cementBoard);
@@ -445,6 +450,7 @@ function restoreRoomInputs(room) {
         set("rm-f-width",  floors[0].width);
         set("rm-f-tilew",  floors[0].tileW);
         set("rm-f-tileh",  floors[0].tileH);
+        set("rm-f-tilethick", floors[0].tileThick || 10);
         set("rm-f-grout",  floors[0].grout);
         setCb("rm-f-ufh",         floors[0].ufh);
         setCb("rm-f-cementboard", floors[0].cementBoard);
@@ -459,6 +465,7 @@ function restoreRoomInputs(room) {
         set("rm-w-height", walls[0].height);
         set("rm-w-tilew",  walls[0].tileW);
         set("rm-w-tileh",  walls[0].tileH);
+        set("rm-w-tilethick", walls[0].tileThick || 8);
         set("rm-w-grout",  walls[0].grout);
         setCb("rm-w-tanking", walls[0].tanking);
     }
@@ -475,9 +482,10 @@ function buildSurfaces() {
         if (!L || !W || !H || L <= 0 || W <= 0 || H <= 0) return null;
 
         const deduct    = g("rm-r-deduct") || 0;
-        const wallTileW = g("rm-r-wtilew") || 300;
-        const wallTileH = g("rm-r-wtileh") || 600;
-        const wallGrout = g("rm-r-wgrout") || 2;
+        const wallTileW     = g("rm-r-wtilew")     || 300;
+        const wallTileH     = g("rm-r-wtileh")     || 600;
+        const wallTileThick = g("rm-r-wtilethick") || 8;
+        const wallGrout     = g("rm-r-wgrout")     || 2;
         const totalWallArea = 2 * (L + W) * H;
         const tanking = cb("rm-r-tanking");
 
@@ -488,7 +496,7 @@ function buildSurfaces() {
             { label:"Wall D (right)", width:W, height:H },
         ].map(w => ({
             type:"wall", label:w.label, width:w.width, height:w.height,
-            tileW:wallTileW, tileH:wallTileH, grout:wallGrout,
+            tileW:wallTileW, tileH:wallTileH, tileThick:wallTileThick, grout:wallGrout,
             tanking,
             area: Math.max(0, w.width * w.height - deduct * (w.width * w.height / totalWallArea))
         }));
@@ -498,6 +506,7 @@ function buildSurfaces() {
                 type:"floor", label:"Floor", length:L, width:W,
                 tileW:   g("rm-r-ftilew") || 600,
                 tileH:   g("rm-r-ftileh") || 600,
+                tileThick: g("rm-r-ftilethick") || 10,
                 grout:   g("rm-r-fgrout") || 2,
                 ufh:     cb("rm-r-ufh"),
                 cementBoard: cb("rm-r-cementboard"),
@@ -516,6 +525,7 @@ function buildSurfaces() {
         return [{ type:"floor", label:"Floor", length:L, width:W,
             tileW:   g("rm-f-tilew") || 600,
             tileH:   g("rm-f-tileh") || 600,
+            tileThick: g("rm-f-tilethick") || 10,
             grout:   g("rm-f-grout") || 2,
             ufh:     cb("rm-f-ufh"),
             cementBoard: cb("rm-f-cementboard"),
@@ -533,6 +543,7 @@ function buildSurfaces() {
             width:W, height:H,
             tileW:   g("rm-w-tilew") || 300,
             tileH:   g("rm-w-tileh") || 600,
+            tileThick: g("rm-w-tilethick") || 8,
             grout:   g("rm-w-grout") || 2,
             tanking: cb("rm-w-tanking"),
             area:    W * H
@@ -558,20 +569,29 @@ function calcSurface(s, customerTiles, labourOpts) {
     // Adhesive: based on tile size category (from BAL/Weber data sheets)
     const maxDim = Math.max(s.tileW, s.tileH);
     let adhKgM2;
-    // Coverage based on industry data: midpoint of range used for bag calculation
-    if      (maxDim < 100)  { adhKgM2 = 2.5; s.adhNotch = "3–4mm";   s.adhCat = "Mosaic / Small"; }
-    else if (maxDim <= 300) { adhKgM2 = 3.5; s.adhNotch = "6–8mm";   s.adhCat = "Standard Wall (100–300mm)"; }
-    else if (maxDim <= 600) { adhKgM2 = 5.0; s.adhNotch = "10–12mm"; s.adhCat = "Standard Floor (300–600mm)"; }
-    else                    { adhKgM2 = 7.0; s.adhNotch = "12mm+ back-butter"; s.adhCat = "Large Format (>600mm)"; }
+    // Midpoint of published usage ranges (Topps Tiles / BAL)
+    // Large format gets +17.5% for mandatory back buttering
+    if      (maxDim < 100)  { adhKgM2 = 3.0; s.adhNotch = "4mm";    s.adhCat = "Mosaic / Small (<100mm)";        s.backButter = false; }
+    else if (maxDim <= 300) { adhKgM2 = 4.0; s.adhNotch = "6mm";    s.adhCat = "Standard Wall (up to 300mm)";    s.backButter = false; }
+    else if (maxDim <= 600) { adhKgM2 = 5.75; s.adhNotch = "10mm";  s.adhCat = "Standard Floor (300–600mm)";     s.backButter = false; }
+    else                    { adhKgM2 = 7.0 * 1.175; s.adhNotch = "12mm+"; s.adhCat = "Large Format (>600mm) inc. back-butter"; s.backButter = true; }
     s.adhKgM2 = adhKgM2;
     s.adhBags = Math.ceil((s.area * adhKgM2) / 20);
 
-    // Grout: calculated from actual tile dimensions (BAL/Weber formula)
-    // kg/m² = ((TW + TH) / (TW × TH)) × jointMm × tilDepthMm × groutDensity
-    // Tile depth: wall tiles ~8mm, floor tiles ~10mm
-    const groutMm   = s.grout || 2;
-    const tileDepth = s.type === "floor" ? 10 : 8;  // mm
-    const groutKgM2 = ((s.tileW + s.tileH) / (s.tileW * s.tileH)) * groutMm * tileDepth * 1.6;
+    // Grout formula:
+    // A = tileW + tileH
+    // B = jointWidth × tileThickness
+    // C = A × B × 1.2
+    // D = tileW × tileH
+    // Rate (kg/m²) = C / D
+    // Total = Rate × area
+    const groutMm   = s.grout     || 2;
+    const tileThick = s.tileThick || (s.type === "floor" ? 10 : 8);
+    const A         = s.tileW + s.tileH;
+    const B         = groutMm * tileThick;
+    const C         = A * B * 1.2;
+    const D         = s.tileW * s.tileH;
+    const groutKgM2 = C / D;
     s.groutKg = Math.ceil(groutKgM2 * s.area * 10) / 10;
 
     const tileCost = customerTiles ? 0 : s.area * S.tilePrice;
