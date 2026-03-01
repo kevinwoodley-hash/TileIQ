@@ -791,26 +791,36 @@ function renderQuote() {
 
     const addr = [j.address, j.city, j.postcode].filter(Boolean).join(", ");
 
-    let subtotal = 0;
+    let subtotal = 0, totalMats = 0, totalLabour = 0, totalPrep = 0;
     let roomRows = "";
     (j.rooms || []).forEach(room => {
         const surfaces = room.surfaces || [];
         surfaces.forEach(s => {
-            const label = `${room.name} – ${s.label}`;
-            const area  = s.area ? s.area.toFixed(2) : "—";
-            const cost  = parseFloat(s.total || 0);
-            subtotal += cost;
+            const label  = `${room.name} – ${s.label}`;
+            const area   = s.area ? s.area.toFixed(2) : "—";
+            const mats   = parseFloat(s.materialSell || 0);
+            const lab    = parseFloat(s.labour || 0) + parseFloat(s.ufhCost || 0);
+            const prep   = parseFloat(s.prepCost || 0);
+            const cost   = mats + lab + prep;
+            subtotal    += cost;
+            totalMats   += mats;
+            totalLabour += lab;
+            totalPrep   += prep;
             roomRows += `
             <tr>
                 <td>${esc(label)}</td>
-                <td>${area} m²</td>
-                <td>£${cost.toFixed(2)}</td>
+                <td style="text-align:right">${area} m²</td>
+                <td style="text-align:right">£${mats.toFixed(2)}</td>
+                <td style="text-align:right">£${lab.toFixed(2)}</td>
+                ${totalPrep > 0 ? `<td style="text-align:right">£${prep.toFixed(2)}</td>` : ""}
+                <td style="text-align:right">£${cost.toFixed(2)}</td>
             </tr>`;
         });
     });
 
-    const vatAmt  = applyVat ? subtotal * 0.2 : 0;
-    const grand   = subtotal + vatAmt;
+    const prepCol  = totalPrep > 0;
+    const vatAmt   = applyVat ? subtotal * 0.2 : 0;
+    const grand    = subtotal + vatAmt;
 
     document.getElementById("quote-output").innerHTML = `
     <div class="quote-doc">
@@ -834,11 +844,23 @@ function renderQuote() {
         </div>
 
         <table class="quote-table">
-            <thead><tr><th>Description</th><th>Area</th><th>Cost</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th style="text-align:right">Area</th>
+                    <th style="text-align:right">Materials</th>
+                    <th style="text-align:right">Labour</th>
+                    ${prepCol ? `<th style="text-align:right">Prep</th>` : ""}
+                    <th style="text-align:right">Total</th>
+                </tr>
+            </thead>
             <tbody>${roomRows}</tbody>
         </table>
 
         <div class="quote-totals">
+            <div class="quote-total-row"><span>Materials</span><span>£${totalMats.toFixed(2)}</span></div>
+            <div class="quote-total-row"><span>Labour</span><span>£${totalLabour.toFixed(2)}</span></div>
+            ${prepCol ? `<div class="quote-total-row"><span>Preparation</span><span>£${totalPrep.toFixed(2)}</span></div>` : ""}
             <div class="quote-total-row"><span>Subtotal</span><span>£${subtotal.toFixed(2)}</span></div>
             ${applyVat ? `<div class="quote-total-row"><span>VAT (20%)</span><span>£${vatAmt.toFixed(2)}</span></div>` : ""}
             <div class="quote-total-row quote-grand"><span>Total</span><span>£${grand.toFixed(2)}</span></div>
