@@ -286,9 +286,16 @@
                 <label>Wall Height (m)</label>
                 <input id="rm-r-height" type="number" step="0.01" placeholder="e.g. 2.4" oninput="rmCalc()">
             </div>
-            <div class="field-group">
-                <label>Deductions – doors / windows (m²)</label>
-                <input id="rm-r-deduct" type="number" step="0.01" value="0" oninput="rmCalc()">
+            <div class="field-group" style="grid-column:1/-1;">
+                <label>Deductions</label>
+                <div class="deduct-presets">
+                    <button type="button" class="deduct-btn" onclick="addDeduct(1.9,0.7,'Door')">🚪 Door<br><span>1.9×0.7m</span></button>
+                    <button type="button" class="deduct-btn" onclick="addDeduct(1.7,0.6,'Bath Wall')">🛁 Bath Wall<br><span>1.7×0.6m</span></button>
+                    <button type="button" class="deduct-btn" onclick="addDeduct(0.7,0.7,'Bath End')">🛁 Bath End<br><span>0.7×0.7m</span></button>
+                    <button type="button" class="deduct-btn deduct-btn-wide" onclick="addDeduct(0,0,'Window','manual')">✏ Manual</button>
+                </div>
+                <div id="deduct-items" class="deduct-items"></div>
+                <input id="rm-r-deduct" type="hidden" value="0">
             </div>
             <div class="divider-label">Wall Tiles</div>
             <div class="field-row">
@@ -337,6 +344,15 @@
                     <input type="checkbox" id="rm-r-ufh" onchange="rmCalc()">
                     Underfloor Heating (UFH)
                 </label>
+                <div class="field-group" style="margin-top:8px;">
+                    <label>Floor Deductions</label>
+                    <div class="deduct-presets">
+                        <button type="button" class="deduct-btn" onclick="addDeduct(1.7,0.7,'Bath Floor','floor')">🛁 Bath Floor<br><span>1.7×0.7m</span></button>
+                        <button type="button" class="deduct-btn deduct-btn-wide" onclick="addDeduct(0,0,'Manual','floor-manual')">✏ Manual</button>
+                    </div>
+                    <div id="deduct-floor-items" class="deduct-items"></div>
+                    <input id="rm-r-fdeduct" type="hidden" value="0">
+                </div>
                 <div class="divider-label">Floor Preparation</div>
                 <div class="prep-options">
                     <label class="prep-option">
