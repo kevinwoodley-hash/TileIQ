@@ -8,7 +8,8 @@
 let jobs     = JSON.parse(localStorage.getItem("tileiq-jobs"))     || [];
 let settings = JSON.parse(localStorage.getItem("tileiq-settings")) || {
     tilePrice:     25.00,
-    groutPrice:    4.50,
+    // Grout priced per 2.5kg bag
+    groutPrice:    3.00,
     adhesivePrice: 22,
     siliconePrice: 6.50,
     markup:        20,
@@ -25,6 +26,18 @@ let settings = JSON.parse(localStorage.getItem("tileiq-settings")) || {
     level3:         7,
     level4:         9,
     tanking:        15,
+
+    // Extra labour for prep installs (£/m²)
+    labourCementBoard: 10,
+    labourUFH:          8,
+    labourLevelling:    6,
+    labourTanking:      8,
+
+    // Extra adhesive usage for install steps (kg/m²)
+    // Cement board bedding + UFH embed/skim can increase adhesive take.
+    adhExtraCementBoardKgM2: 3.0,
+    adhExtraUFHKgM2:         1.0,
+
     companyName:   "",
     companyPhone:  "",
     companyEmail:  "",
@@ -588,8 +601,15 @@ function calcSurface(s, customerTiles, labourOpts) {
     else if (maxDim <= 300) { adhKgM2 = 4.0; s.adhNotch = "6mm";    s.adhCat = "Standard Wall (up to 300mm)";    s.backButter = false; }
     else if (maxDim <= 600) { adhKgM2 = 5.75; s.adhNotch = "10mm";  s.adhCat = "Standard Floor (300–600mm)";     s.backButter = false; }
     else                    { adhKgM2 = 7.0 * 1.175; s.adhNotch = "12mm+"; s.adhCat = "Large Format (>600mm) inc. back-butter"; s.backButter = true; }
-    s.adhKgM2 = adhKgM2;
-    s.adhBags = Math.ceil((s.area * adhKgM2) / 20);
+    // Extra adhesive for install steps (cement board bedding, UFH embed/skim)
+    let adhExtraKgM2 = 0;
+    if (s.type === "floor" && s.cementBoard) adhExtraKgM2 += parseFloat(S.adhExtraCementBoardKgM2) || 0;
+    if (s.type === "floor" && s.ufh)         adhExtraKgM2 += parseFloat(S.adhExtraUFHKgM2) || 0;
+
+    s.adhKgM2Base  = adhKgM2;
+    s.adhKgM2Extra = adhExtraKgM2;
+    s.adhKgM2      = adhKgM2 + adhExtraKgM2;
+    s.adhBags      = Math.ceil((s.area * s.adhKgM2) / 20);
 
     // Grout formula:
     // A = tileW + tileH
@@ -610,8 +630,8 @@ function calcSurface(s, customerTiles, labourOpts) {
     s.groutBags = Math.ceil(s.groutKg / 2.5);
 
     const tileCost = customerTiles ? 0 : s.area * S.tilePrice;
-    // Price grout by bag quantity
-    const groutCost = s.groutBags * 2.5 * S.groutPrice;
+    // Price grout per 2.5kg bag
+    const groutCost = s.groutBags * (parseFloat(S.groutPrice) || 0);
     const matRaw   = tileCost + groutCost + s.adhBags * S.adhesivePrice;
     const mult     = 1 + S.markup / 100;
     s.materialSell = matRaw * mult;
@@ -621,16 +641,34 @@ function calcSurface(s, customerTiles, labourOpts) {
         ? (S.labourM2Wall || S.labourM2 || 35)
         : (S.labourM2Floor || S.labourM2 || 28);
 
+    // Base labour (tiling)
+    let labourBase = 0;
     if (labourOpts && labourOpts.type === "day") {
         const totalArea  = labourOpts.totalArea || 1;
         const proportion = totalArea > 0 ? s.area / totalArea : 0;
         const labRaw     = labourOpts.days * labourOpts.dayRate * proportion;
-        s.labour = S.labourMarkup ? labRaw * mult : labRaw;
+        labourBase = S.labourMarkup ? labRaw * mult : labRaw;
     } else {
         const labRaw = s.area * labourRate;
-        s.labour = S.labourMarkup ? labRaw * mult : labRaw;
+        labourBase = S.labourMarkup ? labRaw * mult : labRaw;
     }
 
+    // Extra labour for prep installs (£/m²)
+    let labourExtra = 0;
+    if (s.type === "floor") {
+        if (s.cementBoard) labourExtra += s.area * (parseFloat(S.labourCementBoard) || 0);
+        if (s.ufh)         labourExtra += s.area * (parseFloat(S.labourUFH) || 0);
+        if (s.levelling)   labourExtra += s.area * (parseFloat(S.labourLevelling) || 0);
+    }
+    if (s.type === "wall" && s.tanking) {
+        labourExtra += s.area * (parseFloat(S.labourTanking) || 0);
+    }
+
+    s.labourBase  = labourBase;
+    s.labourExtra = labourExtra;
+    s.labour      = labourBase + labourExtra;
+
+    // UFH is treated as a separate line item (kit/materials/etc.)
     s.ufhCost = (s.ufh && s.type === "floor") ? s.area * 52 + 180 : 0;
 
     // Prep costs — all rates are £/m², multiplied by surface area
@@ -803,6 +841,14 @@ function goSettings() {
     document.getElementById("set-level3").value         = s.level3       || 7;
     document.getElementById("set-level4").value         = s.level4       || 9;
     document.getElementById("set-tanking").value        = s.tanking      || 15;
+
+    // Extra labour + extra adhesive
+    if (document.getElementById("set-labour-cb"))  document.getElementById("set-labour-cb").value  = s.labourCementBoard ?? 10;
+    if (document.getElementById("set-labour-ufh")) document.getElementById("set-labour-ufh").value = s.labourUFH ?? 8;
+    if (document.getElementById("set-labour-lev")) document.getElementById("set-labour-lev").value = s.labourLevelling ?? 6;
+    if (document.getElementById("set-labour-tank"))document.getElementById("set-labour-tank").value= s.labourTanking ?? 8;
+    if (document.getElementById("set-adh-extra-cb"))  document.getElementById("set-adh-extra-cb").value  = s.adhExtraCementBoardKgM2 ?? 3.0;
+    if (document.getElementById("set-adh-extra-ufh")) document.getElementById("set-adh-extra-ufh").value = s.adhExtraUFHKgM2 ?? 1.0;
     document.getElementById("set-vat").value            = s.applyVat !== false ? "true" : "false";
     document.getElementById("set-company-name").value   = s.companyName  || "";
     document.getElementById("set-company-phone").value  = s.companyPhone || "";
@@ -814,7 +860,8 @@ function goSettings() {
 function saveSettings() {
     settings = {
         tilePrice:     parseFloat(document.getElementById("set-tile-price").value)     || 25.00,
-        groutPrice:    parseFloat(document.getElementById("set-grout-price").value)    || 4.50,
+        // per 2.5kg bag
+        groutPrice:    parseFloat(document.getElementById("set-grout-price").value)    || 3.00,
         adhesivePrice: parseFloat(document.getElementById("set-adhesive-price").value) || 22,
         siliconePrice: parseFloat(document.getElementById("set-silicone-price").value) || 6.50,
         markup:        parseFloat(document.getElementById("set-markup").value)         || 20,
@@ -827,6 +874,15 @@ function saveSettings() {
         level3:        parseFloat(document.getElementById("set-level3").value)         || 7,
         level4:        parseFloat(document.getElementById("set-level4").value)         || 9,
         tanking:       parseFloat(document.getElementById("set-tanking").value)        || 15,
+
+        labourCementBoard: parseFloat(document.getElementById("set-labour-cb")?.value)   || 10,
+        labourUFH:         parseFloat(document.getElementById("set-labour-ufh")?.value)  || 8,
+        labourLevelling:   parseFloat(document.getElementById("set-labour-lev")?.value)  || 6,
+        labourTanking:     parseFloat(document.getElementById("set-labour-tank")?.value) || 8,
+
+        adhExtraCementBoardKgM2: parseFloat(document.getElementById("set-adh-extra-cb")?.value)  || 3.0,
+        adhExtraUFHKgM2:         parseFloat(document.getElementById("set-adh-extra-ufh")?.value) || 1.0,
+
         applyVat:      document.getElementById("set-vat").value === "true",
         companyName:   document.getElementById("set-company-name").value.trim(),
         companyPhone:  document.getElementById("set-company-phone").value.trim(),
@@ -972,7 +1028,7 @@ function renderQuote() {
 
     const addr = [j.address, j.city, j.postcode].filter(Boolean).join(", ");
 
-    let totalMats = 0, totalLabour = 0, totalPrep = 0;
+    let totalMats = 0, totalLabour = 0, totalPrep = 0, totalUFH = 0;
     let totalAdhBags = 0, totalGroutBags = 0, totalGroutKg = 0, totalCBBoards = 0, totalLevelBags = 0;
 
     (j.rooms || []).forEach(room => {
@@ -986,7 +1042,8 @@ function renderQuote() {
         }
         surfaces.forEach(s => calcSurface(s, ct, labourOpts));
         totalMats      += surfaces.reduce((a, s) => a + (s.materialSell  || 0), 0);
-        totalLabour    += surfaces.reduce((a, s) => a + (s.labour || 0) + (s.ufhCost || 0), 0);
+        totalLabour    += surfaces.reduce((a, s) => a + (s.labour || 0), 0);
+        totalUFH       += surfaces.reduce((a, s) => a + (s.ufhCost || 0), 0);
         totalPrep      += surfaces.reduce((a, s) => a + (s.prepCost      || 0), 0);
         totalAdhBags   += surfaces.reduce((a, s) => a + (s.adhBags       || 0), 0);
         totalGroutBags += surfaces.reduce((a, s) => a + (s.groutBags     || 0), 0);
@@ -995,9 +1052,24 @@ function renderQuote() {
         totalLevelBags += surfaces.reduce((a, s) => a + (s.levelBags     || 0), 0);
     });
 
-    const subtotal = totalMats + totalLabour + totalPrep;
+    const subtotal = totalMats + totalLabour + totalPrep + totalUFH;
     const vatAmt   = applyVat ? subtotal * 0.2 : 0;
     const grand    = subtotal + vatAmt;
+
+    // Labour by Room (labour-only; UFH shown separately)
+    const labourByRoomHtml = (j.rooms || []).map(room => {
+        const surfaces = room.surfaces || [];
+        if (!surfaces.length) return "";
+        const ct        = room.tileSupply === "customer";
+        const totalArea = surfaces.reduce((a, s) => a + (s.area || 0), 0);
+        let labourOpts = null;
+        if (room.labourType === "day") {
+            labourOpts = { type:"day", days: room.days || 1, dayRate: room.dayRate || settings.dayRate || 200, totalArea };
+        }
+        surfaces.forEach(s => calcSurface(s, ct, labourOpts));
+        const roomLabour = surfaces.reduce((a, s) => a + (s.labour || 0), 0);
+        return `<div class="qms-row"><span>${esc(room.name)}</span><span>£${roomLabour.toFixed(2)}</span></div>`;
+    }).filter(Boolean).join("");
 
     document.getElementById("quote-output").innerHTML = `
     <div class="quote-doc">
@@ -1024,9 +1096,17 @@ function renderQuote() {
             <tbody>
                 <tr><td>Materials</td><td style="text-align:right">£${totalMats.toFixed(2)}</td></tr>
                 <tr><td>Labour</td><td style="text-align:right">£${totalLabour.toFixed(2)}</td></tr>
+                ${totalUFH > 0 ? `<tr><td>Underfloor Heating</td><td style=\"text-align:right\">£${totalUFH.toFixed(2)}</td></tr>` : \"\"}
                 ${totalPrep > 0 ? `<tr><td>Preparation</td><td style="text-align:right">£${totalPrep.toFixed(2)}</td></tr>` : ""}
             </tbody>
         </table>
+
+        ${labourByRoomHtml ? `
+        <div class="quote-mat-schedule">
+            <div class="qms-title">Labour by Room</div>
+            ${labourByRoomHtml}
+        </div>` : ""}
+
         <div class="quote-mat-schedule">
             <div class="qms-title">Materials Schedule</div>
             ${totalAdhBags   > 0 ? `<div class="qms-row"><span>Tile Adhesive</span><span>${totalAdhBags} × 20kg bag${totalAdhBags !== 1 ? "s" : ""}</span></div>` : ""}
