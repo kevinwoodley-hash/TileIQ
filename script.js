@@ -541,6 +541,7 @@ function buildSurfaces() {
     if (currentSurfType === "floor") {
         const L = g("rm-f-length"), W = g("rm-f-width");
         if (!L || !W || L <= 0 || W <= 0) return null;
+        const fDed = parseFloat(document.getElementById("rm-f-deduct")?.value) || 0;
         return [{ type:"floor", label:"Floor", length:L, width:W,
             tileW:   g("rm-f-tilew") || 600,
             tileH:   g("rm-f-tileh") || 600,
@@ -551,13 +552,14 @@ function buildSurfaces() {
             membrane:    cb("rm-f-membrane"),
             levelling:   cb("rm-f-levelling"),
             levelDepth:  parseInt(sv("rm-f-leveldepth")) || 2,
-            area: L * W
+            area: Math.max(0, L * W - fDed)
         }];
     }
 
     if (currentSurfType === "wall") {
         const W = g("rm-w-width"), H = g("rm-w-height");
         if (!W || !H || W <= 0 || H <= 0) return null;
+        const wDed = parseFloat(document.getElementById("rm-w-deduct")?.value) || 0;
         return [{ type:"wall", label:"Wall",
             width:W, height:H,
             tileW:   g("rm-w-tilew") || 300,
@@ -565,7 +567,7 @@ function buildSurfaces() {
             tileThick: g("rm-w-tilethick") || 8,
             grout:   g("rm-w-grout") || 2,
             tanking: cb("rm-w-tanking"),
-            area:    W * H
+            area:    Math.max(0, W * H - wDed)
         }];
     }
 
@@ -711,31 +713,40 @@ function removeDeduct(idx, isFloor) {
 }
 
 function renderDeducts() {
-    // Wall deductions
-    const wallEl = document.getElementById("deduct-items");
-    if (wallEl) {
-        wallEl.innerHTML = wallDeducts.map((d, i) => `
-            <div class="deduct-tag">
-                <span>${d.label} (${d.w}×${d.h}m = ${d.m2}m²)</span>
-                <button onclick="removeDeduct(${i}, false)" class="deduct-remove">×</button>
-            </div>`).join("");
-    }
-    // Floor deductions
-    const floorEl = document.getElementById("deduct-floor-items");
-    if (floorEl) {
-        floorEl.innerHTML = floorDeducts.map((d, i) => `
-            <div class="deduct-tag">
-                <span>${d.label} (${d.w}×${d.h}m = ${d.m2}m²)</span>
-                <button onclick="removeDeduct(${i}, true)" class="deduct-remove">×</button>
-            </div>`).join("");
-    }
-    // Sync hidden inputs
+    const wallTag = (d, i) => `
+        <div class="deduct-tag">
+            <span>${d.label} (${d.w}×${d.h}m = ${d.m2}m²)</span>
+            <button onclick="removeDeduct(${i}, false)" class="deduct-remove">×</button>
+        </div>`;
+    const floorTag = (d, i) => `
+        <div class="deduct-tag">
+            <span>${d.label} (${d.w}×${d.h}m = ${d.m2}m²)</span>
+            <button onclick="removeDeduct(${i}, true)" class="deduct-remove">×</button>
+        </div>`;
+
+    const wallHtml  = wallDeducts.map(wallTag).join("");
+    const floorHtml = floorDeducts.map(floorTag).join("");
+
+    // Update all containers that show wall deductions
+    ["deduct-items", "deduct-wall-items-w"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = wallHtml;
+    });
+    // Update all containers that show floor deductions
+    ["deduct-floor-items", "deduct-floor-items-f"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = floorHtml;
+    });
+
+    // Sync hidden inputs for all modes
     const wallTotal  = wallDeducts.reduce((a, d) => a + d.m2, 0);
     const floorTotal = floorDeducts.reduce((a, d) => a + d.m2, 0);
-    const wEl = document.getElementById("rm-r-deduct");
-    if (wEl) wEl.value = wallTotal;
-    const fEl = document.getElementById("rm-r-fdeduct");
-    if (fEl) fEl.value = floorTotal;
+    ["rm-r-deduct", "rm-w-deduct"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = wallTotal;
+    });
+    ["rm-r-fdeduct", "rm-f-deduct"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = floorTotal;
+    });
 }
 
 function clearDeducts() {

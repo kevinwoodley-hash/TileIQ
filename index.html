@@ -286,8 +286,8 @@
                 <label>Wall Height (m)</label>
                 <input id="rm-r-height" type="number" step="0.01" placeholder="e.g. 2.4" oninput="rmCalc()">
             </div>
-            <div class="field-group" style="grid-column:1/-1;">
-                <label>Deductions</label>
+            <div class="deduct-section">
+                <div class="deduct-section-label">Wall Deductions</div>
                 <div class="deduct-presets">
                     <button type="button" class="deduct-btn" onclick="addDeduct(1.9,0.7,'Door')">🚪 Door<br><span>1.9×0.7m</span></button>
                     <button type="button" class="deduct-btn" onclick="addDeduct(1.7,0.6,'Bath Wall')">🛁 Bath Wall<br><span>1.7×0.6m</span></button>
@@ -403,6 +403,15 @@
                     <input id="rm-f-width" type="number" step="0.01" placeholder="e.g. 2.2" oninput="rmCalc()">
                 </div>
             </div>
+            <div class="deduct-section">
+                <div class="deduct-section-label">Deductions</div>
+                <div class="deduct-presets">
+                    <button type="button" class="deduct-btn" onclick="addDeduct(1.7,0.7,'Bath Floor','floor')">🛁 Bath Floor<br><span>1.7×0.7m</span></button>
+                    <button type="button" class="deduct-btn deduct-btn-wide" onclick="addDeduct(0,0,'Opening','floor-manual')">✏ Manual</button>
+                </div>
+                <div id="deduct-floor-items-f" class="deduct-items"></div>
+                <input id="rm-f-deduct" type="hidden" value="0">
+            </div>
             <div class="divider-label">Tile</div>
             <div class="field-row">
                 <div class="field-group">
@@ -463,6 +472,17 @@
                     <label>Height (m)</label>
                     <input id="rm-w-height" type="number" step="0.01" placeholder="e.g. 2.4" oninput="rmCalc()">
                 </div>
+            </div>
+            <div class="deduct-section">
+                <div class="deduct-section-label">Deductions</div>
+                <div class="deduct-presets">
+                    <button type="button" class="deduct-btn" onclick="addDeduct(1.9,0.7,'Door')">🚪 Door<br><span>1.9×0.7m</span></button>
+                    <button type="button" class="deduct-btn" onclick="addDeduct(1.7,0.6,'Bath Wall')">🛁 Bath Wall<br><span>1.7×0.6m</span></button>
+                    <button type="button" class="deduct-btn" onclick="addDeduct(0.7,0.7,'Bath End')">🛁 Bath End<br><span>0.7×0.7m</span></button>
+                    <button type="button" class="deduct-btn deduct-btn-wide" onclick="addDeduct(0,0,'Opening','manual')">✏ Manual</button>
+                </div>
+                <div id="deduct-wall-items-w" class="deduct-items"></div>
+                <input id="rm-w-deduct" type="hidden" value="0">
             </div>
             <div class="divider-label">Tile</div>
             <div class="field-row">
