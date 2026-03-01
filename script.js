@@ -801,6 +801,15 @@ function renderQuote() {
         const surfaces = room.surfaces || [];
         if (!surfaces.length) return;
 
+        // Recalculate surfaces so values are always fresh (not stale from localStorage)
+        const ct        = room.tileSupply === "customer";
+        const totalArea = surfaces.reduce((a, s) => a + (s.area || 0), 0);
+        let labourOpts  = null;
+        if (room.labourType === "day") {
+            labourOpts = { type:"day", days: room.days || 1, dayRate: room.dayRate || settings.dayRate || 200, totalArea };
+        }
+        surfaces.forEach(s => calcSurface(s, ct, labourOpts));
+
         // Aggregate room-level totals
         const roomArea    = surfaces.reduce((a, s) => a + (s.area || 0), 0);
         const roomLabour  = surfaces.reduce((a, s) => a + (s.labour || 0) + (s.ufhCost || 0), 0);
