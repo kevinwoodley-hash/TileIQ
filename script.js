@@ -853,6 +853,110 @@ function goQuote() {
     show("screen-quote");
 }
 
+/* ─── MATERIALS BREAKDOWN ─── */
+function goMaterials() {
+    renderMaterials();
+    show("screen-materials");
+}
+
+function renderMaterials() {
+    const j = getJob();
+    const rooms = j.rooms || [];
+    if (!rooms.length) {
+        document.getElementById("materials-output").innerHTML = '<p style="color:#888;text-align:center;padding:24px;">No rooms added yet.</p>';
+        return;
+    }
+
+    // Recalculate all surfaces fresh
+    let grandTiles = 0, grandAdhBags = 0, grandAdhKg = 0;
+    let grandGroutBags = 0, grandGroutKg = 0;
+    let grandCBBoards = 0, grandLevelBags = 0;
+    let hasUFH = false;
+
+    const roomBlocks = rooms.map(room => {
+        const surfaces = room.surfaces || [];
+        if (!surfaces.length) return "";
+
+        const ct        = room.tileSupply === "customer";
+        const totalArea = surfaces.reduce((a, s) => a + (s.area || 0), 0);
+        let labourOpts  = null;
+        if (room.labourType === "day") {
+            labourOpts = { type:"day", days: room.days||1, dayRate: room.dayRate||settings.dayRate||200, totalArea };
+        }
+        surfaces.forEach(s => calcSurface(s, ct, labourOpts));
+
+        const wallM2  = surfaces.filter(s => s.type==="wall").reduce((a,s)=>a+(s.area||0),0);
+        const floorM2 = surfaces.filter(s => s.type==="floor").reduce((a,s)=>a+(s.area||0),0);
+
+        const rows = surfaces.map(s => {
+            const icon      = s.type === "floor" ? "⬜" : "🧱";
+            const tileDesc  = `${s.tileW}×${s.tileH}mm`;
+            const adhKg     = (s.adhBags * 20).toFixed(0);
+            grandTiles     += s.tiles     || 0;
+            grandAdhBags   += s.adhBags   || 0;
+            grandAdhKg     += s.adhBags * 20;
+            grandGroutBags += s.groutBags || 0;
+            grandGroutKg   += s.groutKg   || 0;
+            if (s.cementBoards) grandCBBoards  += s.cementBoards;
+            if (s.levelBags)    grandLevelBags += s.levelBags;
+            if (s.ufh)          hasUFH = true;
+
+            const prepItems = [];
+            if (s.cementBoards) prepItems.push(`${s.cementBoards} cement board${s.cementBoards!==1?"s":""}`);
+            if (s.levelBags)    prepItems.push(`${s.levelBags} × 20kg levelling bag${s.levelBags!==1?"s":""}`);
+            if (s.tanking)      prepItems.push("tanking applied");
+
+            return `
+            <tr class="mat-surf-row">
+                <td>${icon} ${esc(s.label)}</td>
+                <td style="text-align:right">${s.area.toFixed(2)} m²</td>
+                <td style="text-align:right">${s.tiles}<br><span class="mat-sub">${tileDesc}</span></td>
+                <td style="text-align:right">${s.adhBags} bag${s.adhBags!==1?"s":""}<br><span class="mat-sub">${adhKg}kg · ${s.adhCat.split(" ")[0]+' '+s.adhCat.split(" ")[1]||""}</span></td>
+                <td style="text-align:right">${s.groutBags} bag${s.groutBags!==1?"s":""}<br><span class="mat-sub">${s.groutKg}kg total</span></td>
+                ${prepItems.length ? `<td style="text-align:right;font-size:11px;color:#666;">${prepItems.join("<br>")}</td>` : "<td></td>"}
+            </tr>`;
+        }).join("");
+
+        const areaSummary = [
+            wallM2  > 0 ? `🧱 ${wallM2.toFixed(2)} m²` : "",
+            floorM2 > 0 ? `⬜ ${floorM2.toFixed(2)} m²` : "",
+        ].filter(Boolean).join("  ·  ");
+
+        return `
+        <div class="mat-room-block">
+            <div class="mat-room-title">${esc(room.name)} <span class="mat-room-area">${areaSummary}</span></div>
+            <table class="mat-table">
+                <thead>
+                    <tr>
+                        <th>Surface</th>
+                        <th style="text-align:right">Area</th>
+                        <th style="text-align:right">Tiles</th>
+                        <th style="text-align:right">Adhesive<br><span style="font-weight:400;font-size:10px">20kg bags</span></th>
+                        <th style="text-align:right">Grout<br><span style="font-weight:400;font-size:10px">2.5kg bags</span></th>
+                        <th style="text-align:right">Prep</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+    }).join("");
+
+    // Grand totals
+    const totalsHtml = `
+    <div class="mat-totals-card">
+        <div class="mat-totals-title">Job Totals</div>
+        <div class="mat-totals-grid">
+            <div class="mat-total-item"><span class="mat-total-label">Tiles</span><span class="mat-total-value">${grandTiles}</span></div>
+            <div class="mat-total-item"><span class="mat-total-label">Adhesive</span><span class="mat-total-value">${grandAdhBags} × 20kg<br><span style="font-size:11px;font-weight:400;">${grandAdhKg.toFixed(0)}kg total</span></span></div>
+            <div class="mat-total-item"><span class="mat-total-label">Grout</span><span class="mat-total-value">${grandGroutBags} × 2.5kg<br><span style="font-size:11px;font-weight:400;">${parseFloat(grandGroutKg.toFixed(1))}kg total</span></span></div>
+            ${grandCBBoards  > 0 ? `<div class="mat-total-item"><span class="mat-total-label">Cement Board</span><span class="mat-total-value">${grandCBBoards} board${grandCBBoards!==1?"s":""}</span></div>` : ""}
+            ${grandLevelBags > 0 ? `<div class="mat-total-item"><span class="mat-total-label">Levelling</span><span class="mat-total-value">${grandLevelBags} × 20kg bag${grandLevelBags!==1?"s":""}</span></div>` : ""}
+        </div>
+    </div>`;
+
+    document.getElementById("materials-output").innerHTML = totalsHtml + roomBlocks;
+}
+
 function renderQuote() {
     const j      = getJob();
     const applyVat = document.getElementById("q-vat").value === "true";

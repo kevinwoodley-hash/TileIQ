@@ -135,9 +135,22 @@
         <div id="job-running-total" class="running-total hidden"></div>
         <div class="job-actions">
             <button onclick="goEditJob()" class="btn-secondary">✏ Edit Details</button>
+            <button onclick="goMaterials()" class="btn-secondary">📦 Materials</button>
             <button onclick="goQuote()" class="btn-primary">Quote →</button>
         </div>
         <button onclick="deleteJob()" class="btn-danger">🗑 Delete Job</button>
+    </div>
+</div>
+
+<!-- MATERIALS BREAKDOWN -->
+<div id="screen-materials" class="screen hidden">
+    <header class="app-header">
+        <button onclick="goJob()" class="btn-back">← Back</button>
+        <h2 class="header-title">Materials</h2>
+        <div></div>
+    </header>
+    <div class="page-body">
+        <div id="materials-output"></div>
     </div>
 </div>
 
