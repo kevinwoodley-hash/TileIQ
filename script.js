@@ -792,33 +792,55 @@ function renderQuote() {
     const addr = [j.address, j.city, j.postcode].filter(Boolean).join(", ");
 
     let subtotal = 0, totalMats = 0, totalLabour = 0, totalPrep = 0;
+    let hasPrep = false;
+    // Pre-scan to know if any prep exists (for column header)
+    (j.rooms || []).forEach(r => (r.surfaces||[]).forEach(s => { if ((s.prepCost||0) > 0) hasPrep = true; }));
+
     let roomRows = "";
     (j.rooms || []).forEach(room => {
         const surfaces = room.surfaces || [];
+        if (!surfaces.length) return;
+
+        // Aggregate room-level totals
+        const roomArea    = surfaces.reduce((a, s) => a + (s.area || 0), 0);
+        const roomLabour  = surfaces.reduce((a, s) => a + (s.labour || 0) + (s.ufhCost || 0), 0);
+        const roomPrep    = surfaces.reduce((a, s) => a + (s.prepCost || 0), 0);
+
+        // Room heading row (name + combined labour)
+        roomRows += `
+        <tr class="qt-room-header">
+            <td colspan="2"><strong>${esc(room.name)}</strong> <span class="qt-area-note">${roomArea.toFixed(2)} m²</span></td>
+            <td></td>
+            <td style="text-align:right"><strong>£${roomLabour.toFixed(2)}</strong></td>
+            ${hasPrep ? `<td style="text-align:right">${roomPrep > 0 ? `£${roomPrep.toFixed(2)}` : "—"}</td>` : ""}
+            <td></td>
+        </tr>`;
+
+        // One material line per surface (tiles, adhesive, grout)
         surfaces.forEach(s => {
-            const label  = `${room.name} – ${s.label}`;
-            const area   = s.area ? s.area.toFixed(2) : "—";
-            const mats   = parseFloat(s.materialSell || 0);
-            const lab    = parseFloat(s.labour || 0) + parseFloat(s.ufhCost || 0);
-            const prep   = parseFloat(s.prepCost || 0);
-            const cost   = mats + lab + prep;
-            subtotal    += cost;
-            totalMats   += mats;
-            totalLabour += lab;
-            totalPrep   += prep;
-            roomRows += `
-            <tr>
-                <td>${esc(label)}</td>
+            const icon  = s.type === "floor" ? "⬜" : "🧱";
+            const area  = (s.area || 0).toFixed(2);
+            const mats  = parseFloat(s.materialSell || 0);
+            subtotal   += mats;
+            totalMats  += mats;
+            roomRows   += `
+            <tr class="qt-mat-row">
+                <td class="qt-indent">${icon} ${esc(s.label)} <span class="qt-detail">${s.tiles} tiles · ${s.adhBags} bags adh · ${s.groutKg}kg grout</span></td>
                 <td style="text-align:right">${area} m²</td>
                 <td style="text-align:right">£${mats.toFixed(2)}</td>
-                <td style="text-align:right">£${lab.toFixed(2)}</td>
-                ${totalPrep > 0 ? `<td style="text-align:right">£${prep.toFixed(2)}</td>` : ""}
-                <td style="text-align:right">£${cost.toFixed(2)}</td>
+                <td></td>
+                ${hasPrep ? `<td></td>` : ""}
+                <td></td>
             </tr>`;
         });
+
+        // Add room labour + prep to grand subtotal
+        subtotal    += roomLabour + roomPrep;
+        totalLabour += roomLabour;
+        totalPrep   += roomPrep;
     });
 
-    const prepCol  = totalPrep > 0;
+    const prepCol = hasPrep;
     const vatAmt   = applyVat ? subtotal * 0.2 : 0;
     const grand    = subtotal + vatAmt;
 
@@ -851,7 +873,7 @@ function renderQuote() {
                     <th style="text-align:right">Materials</th>
                     <th style="text-align:right">Labour</th>
                     ${prepCol ? `<th style="text-align:right">Prep</th>` : ""}
-                    <th style="text-align:right">Total</th>
+                    <th style="text-align:right"></th>
                 </tr>
             </thead>
             <tbody>${roomRows}</tbody>
