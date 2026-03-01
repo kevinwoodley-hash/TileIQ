@@ -199,6 +199,13 @@ function renderJobView() {
     roomsEl.innerHTML = rooms.map((r, i) => {
         const surfaces = r.surfaces || [];
 
+        // Recalc so materialSell/labour/prepCost are always fresh
+        const rCt = r.tileSupply === "customer";
+        const rArea = surfaces.reduce((a, s) => a + (s.area || 0), 0);
+        let rLabOpts = null;
+        if (r.labourType === "day") rLabOpts = { type:"day", days: r.days||1, dayRate: r.dayRate||settings.dayRate||200, totalArea:rArea };
+        surfaces.forEach(s => calcSurface(s, rCt, rLabOpts));
+
         const wallM2  = surfaces.filter(s => s.type === "wall").reduce((a, s) => a + (s.area || 0), 0);
         const floorM2 = surfaces.filter(s => s.type === "floor").reduce((a, s) => a + (s.area || 0), 0);
         const areaParts = [];
@@ -496,7 +503,7 @@ function buildSurfaces() {
                 cementBoard: cb("rm-r-cementboard"),
                 membrane:    cb("rm-r-membrane"),
                 levelling:   cb("rm-r-levelling"),
-                levelDepth:  parseInt(sv("rm-r-leveldepth")),
+                levelDepth:  parseInt(sv("rm-r-leveldepth")) || 2,
                 area: L * W
             });
         }
@@ -514,7 +521,7 @@ function buildSurfaces() {
             cementBoard: cb("rm-f-cementboard"),
             membrane:    cb("rm-f-membrane"),
             levelling:   cb("rm-f-levelling"),
-            levelDepth:  parseInt(sv("rm-f-leveldepth")),
+            levelDepth:  parseInt(sv("rm-f-leveldepth")) || 2,
             area: L * W
         }];
     }
@@ -538,6 +545,10 @@ function buildSurfaces() {
 /* ─── COST CALCULATION for a single surface ─── */
 function calcSurface(s, customerTiles, labourOpts) {
     const S = settings;
+
+    // Ensure area is always a number (guards against string values from localStorage)
+    s.area = parseFloat(s.area) || 0;
+
     const tileArea = (s.tileW / 1000) * (s.tileH / 1000);
 
     // Waste factor: walls 12%, floors 10%
@@ -585,27 +596,33 @@ function calcSurface(s, customerTiles, labourOpts) {
 
     s.ufhCost = (s.ufh && s.type === "floor") ? s.area * 52 + 180 : 0;
 
-    // Prep costs
+    // Prep costs — all rates are £/m², multiplied by surface area
     s.prepCost = 0;
     s.prepLines = [];
     if (s.type === "floor") {
         if (s.cementBoard) {
-            const c = s.area * (S.cementBoard || 18);
-            s.prepCost += c; s.prepLines.push(`Cement Board £${c.toFixed(2)}`);
+            const rate = parseFloat(S.cementBoard) || 18;
+            const c    = s.area * rate;
+            s.prepCost += c; s.prepLines.push(`Cement Board ${s.area.toFixed(2)}m² × £${rate}/m² = £${c.toFixed(2)}`);
         }
         if (s.membrane) {
-            const c = s.area * (S.membrane || 8);
-            s.prepCost += c; s.prepLines.push(`Anti-Crack Membrane £${c.toFixed(2)}`);
+            const rate = parseFloat(S.membrane) || 8;
+            const c    = s.area * rate;
+            s.prepCost += c; s.prepLines.push(`Anti-Crack Membrane ${s.area.toFixed(2)}m² × £${rate}/m² = £${c.toFixed(2)}`);
         }
         if (s.levelling) {
-            const rate = s.levelDepth === 3 ? (S.level3||7) : s.levelDepth === 4 ? (S.level4||9) : (S.level2||5);
+            const depth = s.levelDepth || 2;
+            const rate  = depth === 3 ? (parseFloat(S.level3) || 7)
+                        : depth === 4 ? (parseFloat(S.level4) || 9)
+                        :               (parseFloat(S.level2) || 5);
             const c = s.area * rate;
-            s.prepCost += c; s.prepLines.push(`Levelling ${s.levelDepth||2}mm £${c.toFixed(2)}`);
+            s.prepCost += c; s.prepLines.push(`Levelling ${depth}mm ${s.area.toFixed(2)}m² × £${rate}/m² = £${c.toFixed(2)}`);
         }
     }
     if (s.type === "wall" && s.tanking) {
-        const c = s.area * (S.tanking || 15);
-        s.prepCost += c; s.prepLines.push(`Tanking £${c.toFixed(2)}`);
+        const rate = parseFloat(S.tanking) || 15;
+        const c    = s.area * rate;
+        s.prepCost += c; s.prepLines.push(`Tanking ${s.area.toFixed(2)}m² × £${rate}/m² = £${c.toFixed(2)}`);
     }
 
     s.total = (s.materialSell + s.labour + s.ufhCost + s.prepCost).toFixed(2);
