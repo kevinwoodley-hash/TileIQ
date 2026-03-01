@@ -799,65 +799,24 @@ function renderQuote() {
 
     const addr = [j.address, j.city, j.postcode].filter(Boolean).join(", ");
 
-    let subtotal = 0, totalMats = 0, totalLabour = 0, totalPrep = 0;
-    let hasPrep = false;
-    // Pre-scan to know if any prep exists (for column header)
-    (j.rooms || []).forEach(r => (r.surfaces||[]).forEach(s => { if ((s.prepCost||0) > 0) hasPrep = true; }));
+    let totalMats = 0, totalLabour = 0, totalPrep = 0;
 
-    let roomRows = "";
     (j.rooms || []).forEach(room => {
         const surfaces = room.surfaces || [];
         if (!surfaces.length) return;
-
-        // Recalculate surfaces so values are always fresh (not stale from localStorage)
-        const ct        = room.tileSupply === "customer";
+        const ct       = room.tileSupply === "customer";
         const totalArea = surfaces.reduce((a, s) => a + (s.area || 0), 0);
-        let labourOpts  = null;
+        let labourOpts = null;
         if (room.labourType === "day") {
             labourOpts = { type:"day", days: room.days || 1, dayRate: room.dayRate || settings.dayRate || 200, totalArea };
         }
         surfaces.forEach(s => calcSurface(s, ct, labourOpts));
-
-        // Aggregate room-level totals
-        const roomArea    = surfaces.reduce((a, s) => a + (s.area || 0), 0);
-        const roomLabour  = surfaces.reduce((a, s) => a + (s.labour || 0) + (s.ufhCost || 0), 0);
-        const roomPrep    = surfaces.reduce((a, s) => a + (s.prepCost || 0), 0);
-
-        // Room heading row (name + combined labour)
-        roomRows += `
-        <tr class="qt-room-header">
-            <td colspan="2"><strong>${esc(room.name)}</strong> <span class="qt-area-note">${roomArea.toFixed(2)} m²</span></td>
-            <td></td>
-            <td style="text-align:right"><strong>£${roomLabour.toFixed(2)}</strong></td>
-            ${hasPrep ? `<td style="text-align:right">${roomPrep > 0 ? `£${roomPrep.toFixed(2)}` : "—"}</td>` : ""}
-            <td></td>
-        </tr>`;
-
-        // One material line per surface (tiles, adhesive, grout)
-        surfaces.forEach(s => {
-            const icon  = s.type === "floor" ? "⬜" : "🧱";
-            const area  = (s.area || 0).toFixed(2);
-            const mats  = parseFloat(s.materialSell || 0);
-            subtotal   += mats;
-            totalMats  += mats;
-            roomRows   += `
-            <tr class="qt-mat-row">
-                <td class="qt-indent">${icon} ${esc(s.label)} <span class="qt-detail">${s.tiles} tiles · ${s.adhBags} bags adh · ${s.groutKg}kg grout</span></td>
-                <td style="text-align:right">${area} m²</td>
-                <td style="text-align:right">£${mats.toFixed(2)}</td>
-                <td></td>
-                ${hasPrep ? `<td></td>` : ""}
-                <td></td>
-            </tr>`;
-        });
-
-        // Add room labour + prep to grand subtotal
-        subtotal    += roomLabour + roomPrep;
-        totalLabour += roomLabour;
-        totalPrep   += roomPrep;
+        totalMats   += surfaces.reduce((a, s) => a + (s.materialSell || 0), 0);
+        totalLabour += surfaces.reduce((a, s) => a + (s.labour || 0) + (s.ufhCost || 0), 0);
+        totalPrep   += surfaces.reduce((a, s) => a + (s.prepCost || 0), 0);
     });
 
-    const prepCol = hasPrep;
+    const subtotal = totalMats + totalLabour + totalPrep;
     const vatAmt   = applyVat ? subtotal * 0.2 : 0;
     const grand    = subtotal + vatAmt;
 
@@ -883,23 +842,14 @@ function renderQuote() {
         </div>
 
         <table class="quote-table">
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th style="text-align:right">Area</th>
-                    <th style="text-align:right">Materials</th>
-                    <th style="text-align:right">Labour</th>
-                    ${prepCol ? `<th style="text-align:right">Prep</th>` : ""}
-                    <th style="text-align:right"></th>
-                </tr>
-            </thead>
-            <tbody>${roomRows}</tbody>
+            <tbody>
+                <tr><td>Materials</td><td style="text-align:right">£${totalMats.toFixed(2)}</td></tr>
+                <tr><td>Labour</td><td style="text-align:right">£${totalLabour.toFixed(2)}</td></tr>
+                ${totalPrep > 0 ? `<tr><td>Preparation</td><td style="text-align:right">£${totalPrep.toFixed(2)}</td></tr>` : ""}
+            </tbody>
         </table>
 
         <div class="quote-totals">
-            <div class="quote-total-row"><span>Materials</span><span>£${totalMats.toFixed(2)}</span></div>
-            <div class="quote-total-row"><span>Labour</span><span>£${totalLabour.toFixed(2)}</span></div>
-            ${prepCol ? `<div class="quote-total-row"><span>Preparation</span><span>£${totalPrep.toFixed(2)}</span></div>` : ""}
             <div class="quote-total-row"><span>Subtotal</span><span>£${subtotal.toFixed(2)}</span></div>
             ${applyVat ? `<div class="quote-total-row"><span>VAT (20%)</span><span>£${vatAmt.toFixed(2)}</span></div>` : ""}
             <div class="quote-total-row quote-grand"><span>Total</span><span>£${grand.toFixed(2)}</span></div>
