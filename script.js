@@ -640,6 +640,14 @@ function rmCalc() {
     const prep  = surfaces.reduce((a, s) => a + (s.prepCost || 0), 0);
 
     document.getElementById("rm-total").textContent = total.toFixed(2);
+
+    const wallM2  = surfaces.filter(s => s.type === "wall").reduce((a, s) => a + (s.area || 0), 0);
+    const floorM2 = surfaces.filter(s => s.type === "floor").reduce((a, s) => a + (s.area || 0), 0);
+    const areaParts = [];
+    if (wallM2  > 0) areaParts.push(`🧱 ${wallM2.toFixed(2)} m²`);
+    if (floorM2 > 0) areaParts.push(`⬜ ${floorM2.toFixed(2)} m²`);
+    const areaEl = document.getElementById("rm-area");
+    if (areaEl) areaEl.textContent = areaParts.join("  ");
     const parts = [];
     if (mats > 0) parts.push(`Materials £${mats.toFixed(2)}`);
     if (lab  > 0) {
